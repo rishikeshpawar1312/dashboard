@@ -1,0 +1,209 @@
+datasource db {
+  provider = "mongodb"
+  url      = env("DATABASE_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+model User {
+  id             String    @id @default(auto()) @map("_id") @db.ObjectId
+  name           String?
+  email          String?   @unique
+  hashedPassword String?
+  image          String?
+  emailVerified  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+  accounts       Account[]
+  sessions       Session[]
+  dailyLogins    DailyLogin[]     // New relation
+  loginStreak    LoginStreak?     // New relation
+  studySessions StudySession[]
+  weeklyPlans   WeeklyPlan[]
+  githubProfile GitHubProfile?
+  notes     Note[]  
+  documents Document[]
+   
+  }
+
+model Account {
+  id                String  @id @default(auto()) @map("_id") @db.ObjectId
+  userId            String  @db.ObjectId
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.String
+  access_token      String? @db.String
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.String
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(auto()) @map("_id") @db.ObjectId
+  sessionToken String   @unique
+  userId       String   @db.ObjectId
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  id         String   @id @default(auto()) @map("_id") @db.ObjectId
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+model LeetcodeProfile {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  username  String   @unique
+  data      Json
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Todo {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  title     String
+  completed Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+model DailyLogin {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  loginDate DateTime @default(now())
+  createdAt DateTime @default(now())
+
+  @@index([userId, loginDate])
+}
+
+// New model for tracking login streaks
+model LoginStreak {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @db.ObjectId @unique
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  currentStreak Int      @default(0)
+  longestStreak Int      @default(0)
+  lastLoginDate DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model StudySession {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  date        DateTime
+  subject     String
+  duration    Int      // in minutes
+  description String?
+  type        SessionType
+  completed   Boolean  @default(false)
+}
+
+model WeeklyPlan {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  startDate   DateTime
+  endDate     DateTime
+  goals       String[]
+  subjects    String[]
+}
+
+enum SessionType {
+  STUDY
+  POMODORO
+  BREAK
+}
+
+model GitHubProfile {
+  id            String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId        String   @unique @db.ObjectId
+  user          User     @relation(fields: [userId], references: [id])
+  
+  username      String   @unique
+  profileUrl    String
+  avatarUrl     String
+  name          String?
+  bio           String?
+  publicRepos   Int      @default(0)
+  followers     Int      @default(0)
+  following     Int      @default(0)
+  lastSyncedAt  DateTime?      @default(now())
+
+  repositories  Repository[]
+  contributions Contribution[]
+  
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model Repository {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  githubProfileId String     @db.ObjectId
+  githubProfile  GitHubProfile @relation(fields: [githubProfileId], references: [id])
+  
+  name          String
+  fullName      String
+  description   String?
+  url           String
+  isPrivate     Boolean     @default(false)
+  stargazersCount Int       @default(0)
+  
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+}
+
+model Contribution {
+  id            String       @id @default(auto()) @map("_id") @db.ObjectId
+  githubProfileId String     @db.ObjectId
+  githubProfile  GitHubProfile @relation(fields: [githubProfileId], references: [id])
+  
+  type          String
+  repo          String
+  action        String
+  
+  createdAt     DateTime    @default(now())
+}
+ 
+model Note {
+  id        String   @id @default(auto()) @map("_id") @db.ObjectId
+  userId    String   @db.ObjectId
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  content   String
+  semester  String?
+  subject   String?
+  tags      String[]
+  pinned    Boolean  @default(false)
+  archived  Boolean  @default(false)
+  category  String?  // Add this field
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+}
+
+model Document {
+  id          String   @id @default(auto()) @map("_id") @db.ObjectId
+  filename    String
+  url         String
+  userId      String   @db.ObjectId
+  user        User     @relation(fields: [userId], references: [id])
+  uploadedAt  DateTime @default(now())
+  fileType    String
+  fileSize    Int
+}
