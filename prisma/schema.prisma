@@ -25,6 +25,7 @@ model User {
   githubProfile GitHubProfile?
   notes     Note[]  
   documents Document[]
+
    
   }
 
@@ -207,3 +208,5 @@ model Document {
   fileType    String
   fileSize    Int
 }
+
+ 

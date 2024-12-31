@@ -1,26 +1,25 @@
-import { NextResponse } from 'next/server';
+import { NextRequest, NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { prisma } from '@/lib/prisma';
 import { authOptions } from '../auth/[...nextauth]/route';
 
-// Helper function to reset time to midnight
+// Helper functions remain the same
 function getMidnightDate(date: Date): Date {
   const midnight = new Date(date);
-  midnight.setHours(0, 0, 0, 0);
+  midnight.setUTCHours(0, 0, 0, 0);
   return midnight;
 }
 
-// Helper function to calculate date difference in days
 function getDateDifference(date1: Date, date2: Date): number {
   const diffTime = Math.abs(date2.getTime() - date1.getTime());
   return Math.floor(diffTime / (1000 * 60 * 60 * 24));
 }
 
-export async function GET() {
+export async function GET(request: NextRequest) {
   try {
     const session = await getServerSession(authOptions);
     if (!session?.user?.email) {
-      return NextResponse.json({ error: 'Unauthorized: Please log in' }, { status: 401 });
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const user = await prisma.user.findUnique({
@@ -38,16 +37,15 @@ export async function GET() {
     const recentLogins = await prisma.dailyLogin.findMany({
       where: { userId: user.id },
       orderBy: { loginDate: 'desc' },
-      take: 5, // Adjust based on how many logins you want to display
+      take: 5,
     });
 
     return NextResponse.json({ streak, recentLogins });
   } catch (error) {
-    console.error('Error fetching streak:', error);
+    console.error('Error:', error);
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
-
 export async function POST() {
   try {
     const session = await getServerSession(authOptions);
@@ -65,18 +63,30 @@ export async function POST() {
 
     const now = new Date();
     const todayMidnight = getMidnightDate(now);
+    const yesterdayMidnight = new Date(todayMidnight);
+    yesterdayMidnight.setDate(yesterdayMidnight.getDate() - 1);
+
+    // Get the most recent login
+    const lastLogin = await prisma.dailyLogin.findFirst({
+      where: {
+        userId: user.id,
+      },
+      orderBy: {
+        loginDate: 'desc',
+      },
+    });
 
     // Check for an existing login today
-    const existingLogin = await prisma.dailyLogin.findFirst({
+    const todayLogin = await prisma.dailyLogin.findFirst({
       where: {
         userId: user.id,
         loginDate: {
-          gte: todayMidnight, // Greater than or equal to midnight today
+          gte: todayMidnight,
         },
       },
     });
 
-    if (existingLogin) {
+    if (todayLogin) {
       const streak = await prisma.loginStreak.findUnique({
         where: { userId: user.id },
       });
@@ -98,11 +108,11 @@ export async function POST() {
       where: { userId: user.id },
     });
 
-    if (streak) {
-      const lastLoginDateMidnight = getMidnightDate(new Date(streak.lastLoginDate));
-      const dateDiff = getDateDifference(lastLoginDateMidnight, todayMidnight);
+    const shouldIncrementStreak = lastLogin && 
+      getMidnightDate(new Date(lastLogin.loginDate)) >= yesterdayMidnight;
 
-      if (dateDiff === 1) {
+    if (streak) {
+      if (shouldIncrementStreak) {
         // User logged in consecutively, increment streak
         streak = await prisma.loginStreak.update({
           where: { userId: user.id },
@@ -112,8 +122,8 @@ export async function POST() {
             lastLoginDate: now,
           },
         });
-      } else if (dateDiff > 1) {
-        // User missed a day, reset streak
+      } else {
+        // User missed a day or this is their first login of the day
         streak = await prisma.loginStreak.update({
           where: { userId: user.id },
           data: {

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { Loader2 } from 'lucide-react'
 
 interface Streak {
   currentStreak: number
@@ -17,121 +18,117 @@ const StreakCounter = () => {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
-  const updateStreak = async () => {
-    try {
-      const response = await fetch('/api/daily-login', {
-        method: 'POST',
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        
-        // Specific handling for new user signup error
-        if (response.status === 500 && errorData.error === 'New user') {
-          // Initialize streak for new user
-          setStreak({
-            currentStreak: 1,
-            longestStreak: 1,
-            lastLoginDate: new Date().toISOString()
-          })
-          setLoading(false)
-          return
-        }
-        
-        throw new Error(errorData.error || 'Failed to update streak')
-      }
-      
-      const data = await response.json()
-      if (data.streak) {
-        setStreak(data.streak)
-      }
-      
-      // Refresh the data to get updated logins
-      await fetchStreak()
-    } catch (err) {
-      console.error('Error updating streak:', err)
-      setError(err instanceof Error ? err.message : 'An unknown error occurred')
-      setLoading(false)
-    }
-  }
-
-  const fetchStreak = async () => {
+  const fetchStreak = useCallback(async () => {
     try {
       const response = await fetch('/api/daily-login')
-      
-      if (!response.ok) {
-        const errorData = await response.json()
-        
-        // Specific handling for new user signup error
-        if (response.status === 500 && errorData.error === 'New user') {
-          // Initialize streak for new user
-          setStreak({
-            currentStreak: 1,
-            longestStreak: 1,
-            lastLoginDate: new Date().toISOString()
-          })
-          setLoading(false)
-          return
-        }
-        
-        throw new Error(errorData.error || 'Failed to fetch streak')
-      }
-      
       const data = await response.json()
 
-      if (data.streak) {
-        setStreak(data.streak)
-        setRecentLogins(data.recentLogins || [])
-      } else {
-        // If no streak exists yet, automatically create one
-        await updateStreak()
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to fetch streak')
       }
+
+      setStreak(data.streak)
+      // Take only the two most recent logins
+      setRecentLogins((data.recentLogins || []).slice(0, 2))
     } catch (err) {
       console.error('Streak fetch error:', err)
       setError(err instanceof Error ? err.message : 'An unknown error occurred')
     } finally {
       setLoading(false)
     }
+  }, [])
+
+  const updateStreak = async () => {
+    try {
+      setLoading(true)
+      const response = await fetch('/api/daily-login', { method: 'POST' })
+      const data = await response.json()
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to update streak')
+      }
+
+      await fetchStreak()
+    } catch (err) {
+      console.error('Streak update error:', err)
+      setError(err instanceof Error ? err.message : 'An unknown error occurred')
+      setLoading(false)
+    }
   }
 
   useEffect(() => {
-    // Automatically log the login when the component mounts
-    fetchStreak()
+    updateStreak()
   }, [])
 
   const formatDateTime = (dateTime: string) => {
-    const date = new Date(dateTime)
-    return date.toLocaleString('en-US', {
+    return new Date(dateTime).toLocaleString('en-US', {
       weekday: 'short',
       year: 'numeric',
       month: 'short',
       day: 'numeric',
       hour: '2-digit',
       minute: '2-digit',
-      hour12: true,
+      hour12: true
     })
   }
 
-  if (loading) return <div className="text-center p-4">Logging in...</div>
-  
-  if (error) return (
-    <div className="p-4 bg-red-100 text-red-800 rounded-lg">
-      <h3 className="font-bold">Login Error</h3>
-      <p>{error}</p>
-    </div>
-  )
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center p-4 space-x-2">
+        <Loader2 className="w-4 h-4 animate-spin" />
+        <span>Updating streak...</span>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="p-4 bg-red-50 border border-red-200 text-red-800 rounded-lg">
+        <h3 className="font-semibold mb-1">Error updating streak</h3>
+        <p className="text-sm">{error}</p>
+      </div>
+    )
+  }
 
   return (
-    <div className="p-4 rounded-lg bg-gray-50">
-      <h3 className="text-xl font-bold mb-2">
-        🔥 Current Streak: {streak ? streak.currentStreak : 'No streak yet'}
-      </h3>
-      <p className="text-gray-600">
-        🏆 Longest Streak: {streak?.longestStreak}
-      </p>
-      <p className="text-gray-600">
-        🕒 Last Login: {streak?.lastLoginDate ? formatDateTime(streak.lastLoginDate) : 'Never'}
-      </p>
+    <div className="space-y-4">
+      <div className="p-6 rounded-lg bg-gradient-to-br from-amber-50 to-orange-50 border border-orange-100">
+        <div className="space-y-3">
+          <h3 className="text-2xl font-bold flex items-center gap-2">
+            <span>🔥</span>
+            <span>{streak?.currentStreak || 0} Day Streak</span>
+          </h3>
+          
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <p className="text-sm text-gray-600">Longest Streak</p>
+              <p className="font-semibold">
+                🏆 {streak?.longestStreak || 0} days
+              </p>
+            </div>
+            <div>
+              <p className="text-sm text-gray-600">Last Login</p>
+              <p className="font-semibold">
+                🕒 {streak?.lastLoginDate ? formatDateTime(streak.lastLoginDate) : 'Never'}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {recentLogins.length > 0 && (
+        <div className="mt-4">
+          <h4 className="font-semibold mb-2">Recent Activity</h4>
+          <div className="space-y-2">
+            {recentLogins.map((login, index) => (
+              <div key={index} className="flex justify-between items-center text-sm text-gray-600 p-2 bg-gray-50 rounded">
+                <span>Login</span>
+                <span>{formatDateTime(login.loginDate)}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
     </div>
   )
 }

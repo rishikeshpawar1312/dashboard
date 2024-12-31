@@ -25,6 +25,6 @@
       
     }
   },
-  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/UI/TodoCalendar.js", "src/UI/Chat.jsx", "src/app/api/documents/route.ts"],
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts", "src/UI/TodoCalendar.js", "src/UI/Chat.jsx", "src/app/api/documents/route.ts", "src/frontend/StudentChat.jsx"],
   "exclude": ["node_modules"]
 }
