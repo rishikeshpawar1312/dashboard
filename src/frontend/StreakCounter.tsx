@@ -28,8 +28,18 @@ const StreakCounter = () => {
       }
 
       setStreak(data.streak)
-      // Take only the two most recent logins
-      setRecentLogins((data.recentLogins || []).slice(0, 2))
+      
+      // Filter out consecutive duplicate logins
+      const uniqueLogins = (data.recentLogins || []).reduce((acc: DailyLogin[], current: DailyLogin) => {
+        const lastLogin = acc[acc.length - 1]
+        if (!lastLogin || lastLogin.loginDate !== current.loginDate) {
+          acc.push(current)
+        }
+        return acc
+      }, [])
+      
+      // Take only the two most recent unique logins
+      setRecentLogins(uniqueLogins.slice(0, 2))
     } catch (err) {
       console.error('Streak fetch error:', err)
       setError(err instanceof Error ? err.message : 'An unknown error occurred')

@@ -3,14 +3,17 @@
 import { useState } from 'react';
 import { toast } from 'react-toastify';
 import { AiOutlineLoading3Quarters } from 'react-icons/ai';
+import { AlertCircle } from 'lucide-react';
 
 export default function DocumentUpload() {
   const [file, setFile] = useState<File | null>(null);
   const [uploading, setUploading] = useState(false);
+  const [showRefreshMessage, setShowRefreshMessage] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
       setFile(e.target.files[0]);
+      setShowRefreshMessage(false);
     }
   };
 
@@ -55,6 +58,7 @@ export default function DocumentUpload() {
       if (response.ok) {
         toast.success('Document uploaded successfully');
         setFile(null);
+        setShowRefreshMessage(true);
       } else {
         toast.error(result.error || 'Document upload failed');
       }
@@ -67,9 +71,21 @@ export default function DocumentUpload() {
   };
 
   return (
-    <div className="flex flex-col items-center  bg-gradient-to-br from-blue-50 to-blue-100 p-6">
+    <div className="flex flex-col items-center bg-gradient-to-br from-blue-50 to-blue-100 p-6">
       <form onSubmit={handleSubmit} className="w-full max-w-lg bg-white shadow-lg rounded-xl p-6">
         <h2 className="text-2xl font-bold text-gray-800 text-center mb-6">Upload Your Document</h2>
+        
+        {showRefreshMessage && (
+          <div className="mb-4 p-4 bg-blue-50 border border-blue-200 rounded-lg flex items-start gap-3">
+            <AlertCircle className="text-blue-500 flex-shrink-0 mt-0.5" size={20} />
+            <div>
+              <p className="text-blue-700 text-sm">
+                Document uploaded successfully! Please refresh the page to view the updated document list.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="mb-4">
           <label 
             htmlFor="file-upload" 
