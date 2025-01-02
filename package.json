@@ -47,13 +47,15 @@
     "react-modal": "^3.16.1",
     "react-slick": "^0.30.2",
     "react-toastify": "^10.0.6",
+    "react-tsparticles": "^2.12.2",
     "recharts": "^2.13.3",
     "slick-carousel": "^1.8.1",
     "socket.io": "^4.8.1",
     "socket.io-client": "^4.8.1",
     "swr": "^2.2.5",
     "tailwind-merge": "^2.5.4",
-    "tailwindcss-animate": "^1.0.7"
+    "tailwindcss-animate": "^1.0.7",
+    "tsparticles": "^3.7.1"
   },
   "devDependencies": {
     "@shadcn/ui": "^0.0.4",
