@@ -1,9 +1,9 @@
-// app/api/notes/route.ts
 import { NextResponse } from 'next/server';
 import { getServerSession } from 'next-auth';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { prisma } from '@/lib/prisma';
 
+// Create a new note
 export async function POST(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -20,16 +20,17 @@ export async function POST(req: Request) {
     }
 
     const json = await req.json();
-    const { 
-      title, 
-      content, 
-      category, 
-      semester, 
-      subject, 
-      tags, 
-      pinned = false 
+    const {
+      title,
+      content,
+      category,
+      semester,
+      subject,
+      tags,
+      pinned = false, // Default pinned to false
     } = json;
 
+    // Create the note
     const note = await prisma.note.create({
       data: {
         title,
@@ -38,8 +39,8 @@ export async function POST(req: Request) {
         userId: user.id,
         semester,
         subject,
-        tags: tags || [],
-        pinned
+        tags: tags || [], // Default to an empty array if no tags provided
+        pinned,
       },
     });
 
@@ -50,6 +51,7 @@ export async function POST(req: Request) {
   }
 }
 
+// Fetch user's notes
 export async function GET(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -65,12 +67,24 @@ export async function GET(req: Request) {
       return new NextResponse('User not found', { status: 404 });
     }
 
+    // Optional query parameters (e.g., category, semester)
+    const { searchParams } = new URL(req.url);
+    const categoryFilter = searchParams.get('category');
+    const semesterFilter = searchParams.get('semester');
+    const subjectFilter = searchParams.get('subject');
+    const pinnedFilter = searchParams.get('pinned') === 'true';
+
+    // Fetch notes based on filters
     const notes = await prisma.note.findMany({
       where: {
         userId: user.id,
+        ...(categoryFilter && { category: categoryFilter }),
+        ...(semesterFilter && { semester: semesterFilter }),
+        ...(subjectFilter && { subject: subjectFilter }),
+        ...(pinnedFilter && { pinned: true }),
       },
       orderBy: {
-        createdAt: 'desc',
+        createdAt: 'desc', // Order notes by creation date
       },
     });
 
@@ -81,6 +95,7 @@ export async function GET(req: Request) {
   }
 }
 
+// Update an existing note
 export async function PATCH(req: Request) {
   try {
     const session = await getServerSession(authOptions);
@@ -97,15 +112,15 @@ export async function PATCH(req: Request) {
     }
 
     const json = await req.json();
-    const { 
-      id, 
-      title, 
-      content, 
-      category, 
-      semester, 
-      subject, 
-      tags, 
-      pinned 
+    const {
+      id,
+      title,
+      content,
+      category,
+      semester,
+      subject,
+      tags,
+      pinned,
     } = json;
 
     if (!id) {
@@ -121,7 +136,7 @@ export async function PATCH(req: Request) {
       return new NextResponse('Note not found or unauthorized', { status: 404 });
     }
 
-    // Update the note with all new fields
+    // Update the note
     const updatedNote = await prisma.note.update({
       where: { id },
       data: {
@@ -142,6 +157,7 @@ export async function PATCH(req: Request) {
   }
 }
 
+// Delete a note
 export async function DELETE(req: Request) {
   try {
     const session = await getServerSession(authOptions);
